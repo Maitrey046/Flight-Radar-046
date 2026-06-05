@@ -404,6 +404,57 @@ let alertsActive = false;
 let demoMode = false;
 let lastFetch = 0;
 
+const SETTINGS_KEY = 'skywatch_settings_v2';
+
+function loadAppSettings() {
+  let raw = '';
+  try {
+    raw = localStorage.getItem(SETTINGS_KEY) || '';
+    if (raw) {
+      const s = JSON.parse(raw);
+      if (typeof s.lat === 'number') LAT = s.lat;
+      if (typeof s.lon === 'number') LON = s.lon;
+      if (typeof s.locName === 'string') LOC_NAME = s.locName;
+      if (Number.isFinite(s.rangeNm)) RANGE_NM = parseInt(s.rangeNm, 10);
+      if (Number.isFinite(s.notifRadius)) notifRadius = parseInt(s.notifRadius, 10);
+      if (typeof s.alertsActive === 'boolean') alertsActive = s.alertsActive;
+    }
+  } catch(e) {}
+  try {
+    const savedLoc = localStorage.getItem('skywatch_loc');
+    if (savedLoc && !raw) {
+      const d = JSON.parse(savedLoc);
+      LAT = d.lat ?? LAT;
+      LON = d.lon ?? LON;
+      LOC_NAME = d.name ?? LOC_NAME;
+    }
+  } catch(e) {}
+  try {
+    const savedRadius = localStorage.getItem('skywatch_radius');
+    if (savedRadius && !raw) notifRadius = parseInt(savedRadius, 10);
+  } catch(e) {}
+  try {
+    const savedAlerts = localStorage.getItem('skywatch_alerts');
+    if (savedAlerts === 'on') alertsActive = true;
+  } catch(e) {}
+}
+
+function saveAppSettings() {
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({
+      lat: LAT,
+      lon: LON,
+      locName: LOC_NAME,
+      rangeNm: RANGE_NM,
+      notifRadius,
+      alertsActive
+    }));
+    localStorage.setItem('skywatch_loc', JSON.stringify({ lat: LAT, lon: LON, name: LOC_NAME }));
+    localStorage.setItem('skywatch_radius', String(notifRadius));
+    localStorage.setItem('skywatch_alerts', alertsActive ? 'on' : 'off');
+  } catch(e) {}
+}
+
 // ── TODAY'S STATS (localStorage) ──
 const TODAY_KEY = 'skywatch_stats_' + new Date().toDateString();
 let todayStats = loadTodayStats();
@@ -550,7 +601,7 @@ function drawRadar() {
     const hdgRad = ((p.track ?? 0) - 90) * Math.PI / 180; // canvas 0=east so offset -90
     const sz = isSel ? 9 : 7;
 
-    // Draw plane icon (simple aircraft silhouette)
+    // Draw a more realistic top-down airplane silhouette
     rctx.save();
     rctx.translate(px, py);
     rctx.rotate(hdgRad);
@@ -559,41 +610,64 @@ function drawRadar() {
     rctx.shadowColor = planeCol;
     rctx.shadowBlur = isSel ? 10 : 5;
 
-    // Fuselage
+    // Main fuselage
     rctx.beginPath();
-    rctx.ellipse(0, 0, sz * 1.0, sz * 0.28, 0, 0, Math.PI * 2);
-    rctx.fill();
-
-    // Nose cone
-    rctx.beginPath();
-    rctx.moveTo(sz * 0.9, 0);
-    rctx.lineTo(sz * 1.6, 0);
-    rctx.lineTo(sz * 0.9, sz * 0.18);
+    rctx.moveTo(sz * 1.75, 0);
+    rctx.quadraticCurveTo(sz * 1.35, -sz * 0.16, sz * 0.95, -sz * 0.16);
+    rctx.lineTo(-sz * 0.6, -sz * 0.1);
+    rctx.quadraticCurveTo(-sz * 1.05, 0, -sz * 0.6, sz * 0.1);
+    rctx.lineTo(sz * 0.95, sz * 0.16);
+    rctx.quadraticCurveTo(sz * 1.35, sz * 0.16, sz * 1.75, 0);
     rctx.closePath();
     rctx.fill();
 
-    // Wings
+    // Nose / cockpit
     rctx.beginPath();
-    rctx.moveTo(sz * 0.1, 0);
-    rctx.lineTo(sz * 0.5, -sz * 0.9);
-    rctx.lineTo(sz * 0.7, -sz * 0.9);
-    rctx.lineTo(sz * 0.3, 0);
-    rctx.lineTo(sz * 0.3, sz * 0.9);
-    rctx.lineTo(sz * 0.5, sz * 0.9);
-    rctx.lineTo(sz * 0.1, 0);
+    rctx.moveTo(sz * 1.95, 0);
+    rctx.lineTo(sz * 1.45, -sz * 0.18);
+    rctx.lineTo(sz * 1.45, sz * 0.18);
     rctx.closePath();
     rctx.fill();
 
-    // Tail fins
+    // Main wings
     rctx.beginPath();
-    rctx.moveTo(-sz * 0.7, 0);
-    rctx.lineTo(-sz * 1.0, -sz * 0.55);
-    rctx.lineTo(-sz * 0.7, -sz * 0.55);
-    rctx.lineTo(-sz * 0.5, 0);
-    rctx.lineTo(-sz * 0.5, sz * 0.55);
-    rctx.lineTo(-sz * 0.7, sz * 0.55);
-    rctx.lineTo(-sz * 0.7, 0);
+    rctx.moveTo(sz * 0.2, 0);
+    rctx.lineTo(-sz * 0.25, -sz * 1.0);
+    rctx.lineTo(-sz * 0.85, -sz * 1.0);
+    rctx.lineTo(-sz * 0.3, -sz * 0.05);
+    rctx.lineTo(-sz * 0.3, sz * 0.05);
+    rctx.lineTo(-sz * 0.85, sz * 1.0);
+    rctx.lineTo(-sz * 0.25, sz * 1.0);
     rctx.closePath();
+    rctx.fill();
+
+    // Tail plane
+    rctx.beginPath();
+    rctx.moveTo(-sz * 0.55, 0);
+    rctx.lineTo(-sz * 1.0, -sz * 0.45);
+    rctx.lineTo(-sz * 1.1, -sz * 0.22);
+    rctx.lineTo(-sz * 0.82, 0);
+    rctx.lineTo(-sz * 1.1, sz * 0.22);
+    rctx.lineTo(-sz * 1.0, sz * 0.45);
+    rctx.closePath();
+    rctx.fill();
+
+    // Vertical stabilizer
+    rctx.beginPath();
+    rctx.moveTo(-sz * 0.72, 0);
+    rctx.lineTo(-sz * 1.05, -sz * 0.62);
+    rctx.lineTo(-sz * 0.78, -sz * 0.62);
+    rctx.lineTo(-sz * 0.6, -sz * 0.05);
+    rctx.lineTo(-sz * 0.6, sz * 0.05);
+    rctx.lineTo(-sz * 0.78, sz * 0.62);
+    rctx.lineTo(-sz * 1.05, sz * 0.62);
+    rctx.closePath();
+    rctx.fill();
+
+    // Engine pods for a jet-like look
+    rctx.beginPath();
+    rctx.ellipse(sz * 0.15, -sz * 0.58, sz * 0.16, sz * 0.08, 0, 0, Math.PI * 2);
+    rctx.ellipse(sz * 0.15, sz * 0.58, sz * 0.16, sz * 0.08, 0, 0, Math.PI * 2);
     rctx.fill();
 
     rctx.shadowBlur = 0;
@@ -809,16 +883,18 @@ function closeSettings(e) {
 }
 
 function onRangeChange(v) {
-  RANGE_NM = parseInt(v);
+  RANGE_NM = parseInt(v, 10);
   document.getElementById('rangeVal').textContent = `${v} nm`;
+  saveAppSettings();
   if (sw) sw.postMessage({ type: 'RANGE_CHANGE', rangeNm: RANGE_NM });
+  if (alertsActive && sw) sw.postMessage({ type: 'START_WATCH', lat: LAT, lon: LON, rangeNm: RANGE_NM, radiusKm: notifRadius, maxAltFt: MAX_ALT_FT });
   fetchPlanes();
 }
 
 function onRadiusChange(v) {
-  notifRadius = parseInt(v);
+  notifRadius = parseInt(v, 10);
   document.getElementById('radiusVal').textContent = `${v} km`;
-  localStorage.setItem('skywatch_radius', v);
+  saveAppSettings();
   if (sw) sw.postMessage({ type: 'RADIUS_CHANGE', radiusKm: notifRadius });
   if (alertsActive && sw) sw.postMessage({ type: 'START_WATCH', lat: LAT, lon: LON, rangeNm: RANGE_NM, radiusKm: notifRadius, maxAltFt: MAX_ALT_FT });
 }
@@ -826,7 +902,7 @@ function onRadiusChange(v) {
 function setLocation(lat, lon, name) {
   LAT = lat; LON = lon; LOC_NAME = name;
   document.getElementById('currentLocLabel').textContent = name;
-  try { localStorage.setItem('skywatch_loc', JSON.stringify({ lat, lon, name })); } catch(e) {}
+  saveAppSettings();
   if (sw) sw.postMessage({ type: 'LOCATION_CHANGE', lat, lon });
   if (alertsActive && sw) sw.postMessage({ type: 'START_WATCH', lat: LAT, lon: LON, rangeNm: RANGE_NM, radiusKm: notifRadius, maxAltFt: MAX_ALT_FT });
   fetchPlanes();
@@ -881,6 +957,17 @@ function toggleAlerts() {
 function closeAlertModal() { document.getElementById('alertModal').classList.remove('open'); }
 function closeDisableModal() { document.getElementById('disableModal').classList.remove('open'); }
 
+async function registerBackgroundCheck() {
+  try {
+    if (swReg && 'periodicSync' in swReg) {
+      const status = await navigator.permissions.query({ name: 'periodic-background-sync' });
+      if (status.state === 'granted') {
+        await swReg.periodicSync.register('skywatch-check', { minInterval: 15 * 60 * 1000 });
+      }
+    }
+  } catch(e) {}
+}
+
 async function enableNotifications() {
   closeAlertModal();
 
@@ -897,20 +984,12 @@ async function enableNotifications() {
   }
 
   // BUG FIX 2: persist alert state
-  localStorage.setItem('skywatch_alerts', 'on');
   alertsActive = true;
+  saveAppSettings();
   document.getElementById('alertBtn').classList.add('active');
   document.getElementById('alertBtn').textContent = '🔔 ALERTS ON';
 
-  // Optional: periodic background sync
-  try {
-    if (swReg && 'periodicSync' in swReg) {
-      const status = await navigator.permissions.query({ name: 'periodic-background-sync' });
-      if (status.state === 'granted') {
-        await swReg.periodicSync.register('skywatch-check', { minInterval: 15 * 60 * 1000 });
-      }
-    }
-  } catch(e) {}
+  await registerBackgroundCheck();
 
   showToast('✅ Overhead alerts enabled (below FL150)');
 }
@@ -919,8 +998,8 @@ function disableNotifications() {
   closeDisableModal();
   if (sw) sw.postMessage({ type: 'STOP_WATCH' });
   // BUG FIX 2: persist alert state
-  localStorage.setItem('skywatch_alerts', 'off');
   alertsActive = false;
+  saveAppSettings();
   document.getElementById('alertBtn').classList.remove('active');
   document.getElementById('alertBtn').textContent = '🔔 ALERTS';
   showToast('Alerts disabled');
@@ -1091,20 +1170,15 @@ function handleSWMessage(e) {
 // INIT
 // ═══════════════════════════════════════════════════════
 async function init() {
-  // Restore saved location
-  try {
-    const saved = localStorage.getItem('skywatch_loc');
-    if (saved) { const d = JSON.parse(saved); LAT = d.lat; LON = d.lon; LOC_NAME = d.name; }
-  } catch(e) {}
-  document.getElementById('currentLocLabel').textContent = LOC_NAME;
+  loadAppSettings();
 
-  // Restore saved radius
-  const savedRadius = localStorage.getItem('skywatch_radius');
-  if (savedRadius) {
-    notifRadius = parseInt(savedRadius);
-    document.getElementById('radiusSlider').value = savedRadius;
-    document.getElementById('radiusVal').textContent = `${savedRadius} km`;
-  }
+  document.getElementById('currentLocLabel').textContent = LOC_NAME;
+  document.getElementById('rangeSlider').value = RANGE_NM;
+  document.getElementById('rangeVal').textContent = `${RANGE_NM} nm`;
+  document.getElementById('radiusSlider').value = notifRadius;
+  document.getElementById('radiusVal').textContent = `${notifRadius} km`;
+  document.getElementById('alertBtn').classList.toggle('active', alertsActive);
+  document.getElementById('alertBtn').textContent = alertsActive ? '🔔 ALERTS ON' : '🔔 ALERTS';
 
   resizeCanvases();
   drawRadar();
@@ -1129,18 +1203,16 @@ async function init() {
 
       navigator.serviceWorker.addEventListener('message', handleSWMessage);
 
-      // BUG FIX 2: auto-restart alerts if previously enabled
-      const savedAlerts = localStorage.getItem('skywatch_alerts');
-      if (savedAlerts === 'on' && Notification.permission === 'granted') {
-        alertsActive = true;
+      // Auto-restart alerts if previously enabled
+      if (alertsActive && Notification.permission === 'granted') {
         document.getElementById('alertBtn').classList.add('active');
         document.getElementById('alertBtn').textContent = '🔔 ALERTS ON';
-        // BUG FIX 1: wait for a valid controller
         const ctrl = navigator.serviceWorker.controller || swReg.active;
         if (ctrl) {
           ctrl.postMessage({ type: 'START_WATCH', lat: LAT, lon: LON, rangeNm: RANGE_NM, radiusKm: notifRadius, maxAltFt: MAX_ALT_FT });
           sw = ctrl;
         }
+        await registerBackgroundCheck();
       }
 
     } catch(e) { console.warn('[App] SW registration failed:', e); }
@@ -1163,6 +1235,13 @@ async function init() {
 
   // Resize
   window.addEventListener('resize', () => { resizeCanvases(); drawRadar(); });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && alertsActive) saveAppSettings();
+  });
+  window.addEventListener('pagehide', () => {
+    if (alertsActive) saveAppSettings();
+  });
 }
 
 init();
