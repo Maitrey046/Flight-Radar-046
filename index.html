@@ -31,7 +31,7 @@ button{font-family:inherit;cursor:pointer;border:none;outline:none}
 /* ── LAYOUT ── */
 #app{display:flex;flex-direction:column;height:100%;opacity:0;transition:opacity .5s}
 #app.ready{opacity:1}
-.topbar{display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg2);border-bottom:1px solid var(--bdr);flex-shrink:0;min-height:50px}
+.topbar{display:flex;align-items:center;gap:6px;padding:8px 10px;background:var(--bg2);border-bottom:1px solid var(--bdr);flex-shrink:0;min-height:46px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}.topbar::-webkit-scrollbar{display:none}
 .brand{font-family:'Orbitron',monospace;font-size:.75rem;font-weight:700;letter-spacing:.18em;color:var(--g);margin-right:auto;white-space:nowrap}
 .badge{display:flex;align-items:center;gap:5px;background:rgba(0,255,136,.08);border:1px solid var(--bdr);border-radius:20px;padding:3px 9px 3px 6px;font-size:.6rem;font-family:'Share Tech Mono',monospace;color:var(--gd);letter-spacing:.1em}
 .live-dot{width:7px;height:7px;border-radius:50%;background:var(--g);box-shadow:0 0 6px var(--g);animation:blink 1.4s ease-in-out infinite}
@@ -510,14 +510,21 @@ function drawRadar() {
   rctx.fillStyle = 'var(--g)'; rctx.fill();
 
   // Planes
+  // RANGE_NM covers the full radius. 1 nm = 1/60 degree lat.
+  // pixels per nm = R / RANGE_NM
+  const pxPerNm = R / RANGE_NM;
   planes.forEach(p => {
     if (!p.lat || !p.lon) return;
-    const dx = (p.lon - LON) / lonDeg() * R / RANGE_NM * 60;
-    const dy = -(p.lat - LAT) / latDeg() * R / RANGE_NM * 60;
-    if (Math.abs(dx) > R || Math.abs(dy) > R) return;
-    const px = cx + dx, py = cy + dy;
+    // Convert lat/lon delta to nautical miles, then to pixels
+    const dLat = p.lat - LAT;
+    const dLon = p.lon - LON;
+    const dLatNm = dLat * 60;                                          // 1 deg lat = 60 nm
+    const dLonNm = dLon * 60 * Math.cos(LAT * Math.PI / 180);         // correct for longitude
+    const dx = dLonNm * pxPerNm;
+    const dy = -dLatNm * pxPerNm;                                      // canvas y is inverted
     const dist = Math.sqrt(dx * dx + dy * dy);
     if (dist > R) return;
+    const px = cx + dx, py = cy + dy;
 
     const isOver = p._distKm != null && p._distKm * 1000 < notifRadius * 1000;
     const isSel  = p.hex === selHex;
@@ -656,7 +663,7 @@ function renderList() {
   list.innerHTML = planes.slice(0, 30).map(p => {
     const call = (p.flight || p.hex || '?').trim();
     const alt  = p.alt_baro ?? p.alt_geom;
-    const fl   = alt ? `FL${Math.round(alt / 30.48).toString().padStart(3, '0')}` : 'GND';
+    const fl   = alt ? `FL${Math.round(alt / 100).toString().padStart(3, '0')}` : 'GND';
     const spd  = p.gs ? `${Math.round(p.gs)}kt` : '—';
     const dist = p._distKm.toFixed(1);
     const isOver = p._distKm * 1000 < notifRadius * 1000;
@@ -676,7 +683,7 @@ function updateStatsBar() {
   if (!planes.length) return;
   const alts = planes.filter(p => (p.alt_baro ?? p.alt_geom) != null).map(p => p.alt_baro ?? p.alt_geom);
   const maxAlt = alts.length ? Math.max(...alts) : null;
-  document.getElementById('statMax').textContent = maxAlt ? `FL${Math.round(maxAlt/30.48).toString().padStart(3,'0')}` : '—';
+  document.getElementById('statMax').textContent = maxAlt ? `FL${Math.round(maxAlt/100).toString().padStart(3,'0')}` : '—';
   const cl = planes[0]; // already sorted by distance
   document.getElementById('statClosest').textContent = cl ? `${cl._distKm.toFixed(1)}km` : '—';
 }
@@ -691,7 +698,7 @@ function selectPlane(hex) {
 
   const call = (p.flight || p.hex || '?').trim();
   const alt  = p.alt_baro ?? p.alt_geom;
-  const fl   = alt ? `FL${Math.round(alt / 30.48).toString().padStart(3, '0')} (${Math.round(alt).toLocaleString()} ft)` : 'Unknown';
+  const fl   = alt ? `FL${Math.round(alt / 100).toString().padStart(3, '0')} (${Math.round(alt).toLocaleString()} ft)` : 'Unknown';
   const spd  = p.gs ? `${Math.round(p.gs)} kt` : '—';
   const hdg  = p.track != null ? `${Math.round(p.track)}°` : '—';
   const cat  = p.t || p.category || '—';
@@ -871,7 +878,7 @@ function refreshStatsUI() {
   document.getElementById('scTotal').textContent = total;
 
   if (todayStats.highestAlt != null) {
-    const fl = `FL${Math.round(todayStats.highestAlt / 30.48).toString().padStart(3, '0')}`;
+    const fl = `FL${Math.round(todayStats.highestAlt / 100).toString().padStart(3, '0')}`;
     document.getElementById('sHighAlt').textContent = fl;
     document.getElementById('sHighAltFlight').textContent = todayStats.highAltFlight || '—';
     document.getElementById('scHighAlt').textContent = fl;
@@ -926,7 +933,7 @@ function refreshStatsUI() {
 // ═══════════════════════════════════════════════════════
 function buildStatsText() {
   const total = Object.keys(todayStats.seenHexes).length;
-  const fl = todayStats.highestAlt ? `FL${Math.round(todayStats.highestAlt / 30.48).toString().padStart(3, '0')}` : '—';
+  const fl = todayStats.highestAlt ? `FL${Math.round(todayStats.highestAlt / 100).toString().padStart(3, '0')}` : '—';
   const cl = todayStats.closest != null ? `${todayStats.closest.toFixed(1)} km` : '—';
   const sorted = Object.entries(todayStats.airlines).sort((a, b) => b[1] - a[1]);
   const airline = sorted.length ? sorted[0][0] : '—';
