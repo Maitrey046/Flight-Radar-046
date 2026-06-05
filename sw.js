@@ -1,19 +1,18 @@
-// ─── SKYWATCH SERVICE WORKER v2 ─────────────────────────────
-// Fixed: SW now fetches planes independently — works when tab is closed
-const CACHE = 'skywatch-v2';
+// ─── SKYWATCH SERVICE WORKER v3 ─────────────────────────────
+// Fixed: proper null checks, START_WATCH guaranteed delivery
+const CACHE = 'skywatch-v3';
 
-// ── State (persists while SW is alive) ──────────────────────
 let config = {
   lat: 18.5204,
   lon: 73.8567,
   rangeNm: 25,
-  radiusM: 5000,   // default 5 km
+  radiusM: 5000,
+  maxAltFt: 15000,   // NEW: max altitude filter
   watching: false
 };
-let notifiedHexes = {};   // hex -> timestamp
+let notifiedHexes = {};
 let fetchInterval = null;
 
-// ── Install & cache app shell ────────────────────────────────
 self.addEventListener('install', e => {
   self.skipWaiting();
   e.waitUntil(
@@ -24,7 +23,6 @@ self.addEventListener('install', e => {
 });
 
 self.addEventListener('activate', e => {
-  // Delete old caches
   e.waitUntil(
     caches.keys().then(keys =>
       Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
@@ -32,9 +30,7 @@ self.addEventListener('activate', e => {
   );
 });
 
-// ── Serve from cache when offline ───────────────────────────
 self.addEventListener('fetch', e => {
-  // Only cache same-origin requests (not ADSB API calls)
   if (new URL(e.request.url).origin === self.location.origin) {
     e.respondWith(
       caches.match(e.request).then(r => r || fetch(e.request))
@@ -42,18 +38,18 @@ self.addEventListener('fetch', e => {
   }
 });
 
-// ── Message handler from app page ───────────────────────────
 self.addEventListener('message', e => {
   const msg = e.data;
   if (!msg) return;
 
   switch (msg.type) {
     case 'START_WATCH':
-      config.lat      = msg.lat      ?? config.lat;
-      config.lon      = msg.lon      ?? config.lon;
-      config.rangeNm  = msg.rangeNm  ?? config.rangeNm;
-      config.radiusM  = (msg.radiusKm ?? 5) * 1000;
-      config.watching = true;
+      config.lat       = msg.lat      ?? config.lat;
+      config.lon       = msg.lon      ?? config.lon;
+      config.rangeNm   = msg.rangeNm  ?? config.rangeNm;
+      config.radiusM   = (msg.radiusKm ?? 5) * 1000;
+      config.maxAltFt  = msg.maxAltFt ?? 15000;
+      config.watching  = true;
       startFetchLoop();
       break;
 
@@ -75,24 +71,22 @@ self.addEventListener('message', e => {
       config.lon = msg.lon;
       break;
 
-    // Legacy support
     case 'CONFIG':
       if (msg.payload) {
-        config.lat     = msg.payload.lat     ?? config.lat;
-        config.lon     = msg.payload.lon     ?? config.lon;
-        config.rangeNm = msg.payload.rangeNm ?? config.rangeNm;
-        config.radiusM = msg.payload.overheadM ?? config.radiusM;
+        config.lat      = msg.payload.lat      ?? config.lat;
+        config.lon      = msg.payload.lon      ?? config.lon;
+        config.rangeNm  = msg.payload.rangeNm  ?? config.rangeNm;
+        config.radiusM  = msg.payload.overheadM ?? config.radiusM;
+        config.maxAltFt = msg.payload.maxAltFt  ?? config.maxAltFt;
       }
       break;
 
     case 'PLANES':
-      // Tab is open and pushing data — check it directly
       if (msg.planes) checkOverhead(msg.planes);
       break;
   }
 });
 
-// ── Fetch loop (runs inside SW, works with tab closed) ───────
 const APIS = [
   (lat, lon, nm) => `https://api.adsb.lol/v2/lat/${lat}/lon/${lon}/dist/${nm}`,
   (lat, lon, nm) => `https://api.airplanes.live/v2/point/${lat}/${lon}/${nm}`,
@@ -101,10 +95,10 @@ const APIS = [
 let apiIdx = 0;
 
 function startFetchLoop() {
-  if (fetchInterval) return; // already running
+  if (fetchInterval) return;
   console.log('[SW] Starting background fetch loop');
-  doFetch(); // immediate first fetch
-  fetchInterval = setInterval(doFetch, 20000); // every 20 s
+  doFetch();
+  fetchInterval = setInterval(doFetch, 20000);
 }
 
 function stopFetchLoop() {
@@ -127,7 +121,6 @@ async function doFetch() {
       const planes = (data.ac || []).filter(p => p.lat != null && p.lon != null);
       apiIdx = idx;
       checkOverhead(planes);
-      // Push fresh data to any open tabs
       broadcastToClients({ type: 'PLANES_UPDATE', planes });
       return;
     } catch (err) {
@@ -136,7 +129,6 @@ async function doFetch() {
   }
 }
 
-// ── Distance helper ──────────────────────────────────────────
 function distM(la1, lo1, la2, lo2) {
   const R = 6371000, d2r = d => d * Math.PI / 180;
   const dla = d2r(la2 - la1), dlo = d2r(lo2 - lo1);
@@ -145,24 +137,26 @@ function distM(la1, lo1, la2, lo2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// ── Overhead check & native notification ────────────────────
 function checkOverhead(planes) {
   const now = Date.now();
-  const { lat, lon, radiusM } = config;
+  const { lat, lon, radiusM, maxAltFt } = config;
 
   planes.forEach(p => {
     if (!p.lat || !p.lon) return;
     const d = distM(lat, lon, p.lat, p.lon);
     if (d > radiusM) return;
 
+    // Altitude filter — skip planes above maxAltFt
+    const alt = p.alt_baro ?? p.alt_geom;
+    if (alt != null && alt > maxAltFt) return;
+
     const hex = p.hex || p.icao24 || '';
     const lastNotif = notifiedHexes[hex] || 0;
-    if (now - lastNotif < 5 * 60 * 1000) return; // 5-min cooldown
+    if (now - lastNotif < 5 * 60 * 1000) return;
 
     notifiedHexes[hex] = now;
 
     const call = (p.flight || p.hex || 'Unknown').trim();
-    const alt  = p.alt_baro ?? p.alt_geom;
     const fl   = alt ? `FL${Math.round(alt / 30.48).toString().padStart(3, '0')}` : '?';
     const spd  = p.gs ? `${Math.round(p.gs)} kt` : '?';
     const dm   = (d / 1000).toFixed(1);
@@ -183,13 +177,11 @@ function checkOverhead(planes) {
     });
   });
 
-  // Prune old entries
   Object.keys(notifiedHexes).forEach(h => {
     if (now - notifiedHexes[h] > 15 * 60 * 1000) delete notifiedHexes[h];
   });
 }
 
-// ── Notification click ───────────────────────────────────────
 self.addEventListener('notificationclick', e => {
   e.notification.close();
   if (e.action === 'dismiss') return;
@@ -205,14 +197,11 @@ self.addEventListener('notificationclick', e => {
   );
 });
 
-// ── Broadcast to all open tabs ───────────────────────────────
 async function broadcastToClients(msg) {
   const cs = await clients.matchAll({ type: 'window', includeUncontrolled: true });
   cs.forEach(c => c.postMessage(msg));
 }
 
-// ── Periodic Background Sync (Android Chrome — optional) ─────
-// Registered in app when available; fires even if SW was killed
 self.addEventListener('periodicsync', e => {
   if (e.tag === 'skywatch-check') {
     e.waitUntil(doFetch());
