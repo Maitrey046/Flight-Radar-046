@@ -464,11 +464,24 @@ let W = 0, H = 0, R = 0;
 
 function resizeCanvases() {
   const wrap = document.getElementById('radarWrap');
-  const size = Math.min(wrap.clientWidth, wrap.clientHeight) - 4;
-  W = H = size; R = size / 2;
-  rc.width = sc.width = size;
-  rc.height = sc.height = size;
-  rc.style.cssText = sc.style.cssText = `width:${size}px;height:${size}px;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)`;
+  const dpr  = window.devicePixelRatio || 1;
+  // clientHeight can be 0 on first paint on mobile — fall back to vw-based estimate
+  const cssW = wrap.clientWidth  || window.innerWidth;
+  const cssH = wrap.clientHeight || Math.round(window.innerHeight * 0.55);
+  const cssSize = Math.max(100, Math.min(cssW, cssH) - 4);
+  W = H = Math.round(cssSize * dpr);   // physical pixels
+  R = W / 2;
+  rc.width  = sc.width  = W;
+  rc.height = sc.height = H;
+  // CSS size stays at cssSize so layout is correct
+  const s = `width:${cssSize}px;height:${cssSize}px;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)`;
+  rc.style.cssText = sc.style.cssText = s;
+  // Scale context so 1 unit = 1 CSS pixel on all screens
+  rctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  // R in CSS pixels for all coordinate math
+  R = cssSize / 2;
+  W = H = cssSize;
 }
 
 function drawRadar() {
@@ -526,19 +539,73 @@ function drawRadar() {
     if (dist > R) return;
     const px = cx + dx, py = cy + dy;
 
+    const alt    = p.alt_baro ?? p.alt_geom;
     const isOver = p._distKm != null && p._distKm * 1000 < notifRadius * 1000;
     const isSel  = p.hex === selHex;
     const col    = isOver ? '#ffb300' : isSel ? '#00ff88' : '#00cc66';
-    const alt    = p.alt_baro ?? p.alt_geom;
     const belowMax = alt == null || alt <= MAX_ALT_FT;
+    const planeCol = belowMax ? col : 'rgba(255,100,68,.8)';
 
-    // Draw plane dot
-    rctx.beginPath(); rctx.arc(px, py, isSel ? 5 : 3.5, 0, Math.PI * 2);
-    rctx.fillStyle = belowMax ? col : 'rgba(255,100,68,.6)';
+    // Heading: use track if available, else 0 (north up)
+    const hdgRad = ((p.track ?? 0) - 90) * Math.PI / 180; // canvas 0=east so offset -90
+    const sz = isSel ? 9 : 7;
+
+    // Draw plane icon (simple aircraft silhouette)
+    rctx.save();
+    rctx.translate(px, py);
+    rctx.rotate(hdgRad);
+
+    rctx.fillStyle = planeCol;
+    rctx.shadowColor = planeCol;
+    rctx.shadowBlur = isSel ? 10 : 5;
+
+    // Fuselage
+    rctx.beginPath();
+    rctx.ellipse(0, 0, sz * 1.0, sz * 0.28, 0, 0, Math.PI * 2);
     rctx.fill();
+
+    // Nose cone
+    rctx.beginPath();
+    rctx.moveTo(sz * 0.9, 0);
+    rctx.lineTo(sz * 1.6, 0);
+    rctx.lineTo(sz * 0.9, sz * 0.18);
+    rctx.closePath();
+    rctx.fill();
+
+    // Wings
+    rctx.beginPath();
+    rctx.moveTo(sz * 0.1, 0);
+    rctx.lineTo(sz * 0.5, -sz * 0.9);
+    rctx.lineTo(sz * 0.7, -sz * 0.9);
+    rctx.lineTo(sz * 0.3, 0);
+    rctx.lineTo(sz * 0.3, sz * 0.9);
+    rctx.lineTo(sz * 0.5, sz * 0.9);
+    rctx.lineTo(sz * 0.1, 0);
+    rctx.closePath();
+    rctx.fill();
+
+    // Tail fins
+    rctx.beginPath();
+    rctx.moveTo(-sz * 0.7, 0);
+    rctx.lineTo(-sz * 1.0, -sz * 0.55);
+    rctx.lineTo(-sz * 0.7, -sz * 0.55);
+    rctx.lineTo(-sz * 0.5, 0);
+    rctx.lineTo(-sz * 0.5, sz * 0.55);
+    rctx.lineTo(-sz * 0.7, sz * 0.55);
+    rctx.lineTo(-sz * 0.7, 0);
+    rctx.closePath();
+    rctx.fill();
+
+    rctx.shadowBlur = 0;
+    rctx.restore();
+
+    // Selection ring
     if (isSel || isOver) {
-      rctx.strokeStyle = col; rctx.lineWidth = 1.5;
-      rctx.beginPath(); rctx.arc(px, py, 8, 0, Math.PI * 2); rctx.stroke();
+      rctx.strokeStyle = col;
+      rctx.lineWidth = 1.2;
+      rctx.setLineDash([3, 3]);
+      rctx.beginPath(); rctx.arc(px, py, sz + 5, 0, Math.PI * 2); rctx.stroke();
+      rctx.setLineDash([]);
     }
 
     // Label
