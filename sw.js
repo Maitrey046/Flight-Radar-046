@@ -226,8 +226,8 @@ function checkOverhead(planes) {
     const spd  = p.gs ? `${Math.round(p.gs)} kt` : '?';
     const dm   = (d / 1000).toFixed(1);
 
-    self.registration.showNotification(`✈ ${call} overhead!`, {
-      body: `${fl} · ${spd} · ${dm} km away`,
+    self.registration.showNotification(`✈ New plane entered range`, {
+      body: `${call} · ${fl} · ${spd} · ${dm} km away`,
       icon: './icon.png',
       badge: './badge.png',
       tag: hex,

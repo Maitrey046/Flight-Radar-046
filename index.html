@@ -52,11 +52,11 @@ button{font-family:inherit;cursor:pointer;border:none;outline:none}
 .weather-status{margin-top:6px;font-family:'Share Tech Mono',monospace;font-size:.58rem;color:var(--g2);letter-spacing:.08em}
 
 /* ── AOD MODE ── */
-.aod-overlay{display:none;position:fixed;top:10px;left:10px;right:10px;z-index:40;pointer-events:none;min-height:calc(100% - 20px)}
+.aod-overlay{display:none;position:fixed;top:10px;left:10px;right:10px;z-index:40;pointer-events:none;min-height:calc(100% - 20px);transition:transform .45s ease}.aod-mode{--g:#ff5d5d;--gd:rgba(255,140,140,.82);--g2:#ff8b8b;--amber:#ff6767;--red:#ff3d3d;--bdr:rgba(255,96,96,.16);--bdr2:rgba(255,96,96,.26);--white:#fff2f2;--muted:rgba(255,220,220,.48)}.aod-mode .radar-wrap{background:radial-gradient(ellipse at center,#180000 0%,#000 78%)}.aod-mode #radarCanvas,.aod-mode #sweepCanvas{filter:brightness(.85) contrast(1.22) saturate(.7)}.aod-mode .aod-clock,.aod-mode .aod-sub,.aod-mode .aod-mini,.aod-mode .aod-status,.aod-mode .aod-metric span,.aod-mode .aod-metric strong{color:#ff9d9d;text-shadow:0 0 10px rgba(255,90,90,.15)}.aod-mode .aod-mini,.aod-mode .aod-metric,.aod-mode .aod-exit-btn{border-color:rgba(255,96,96,.22);background:rgba(255,96,96,.06)}.aod-mode .aod-exit-btn.on{background:rgba(255,96,96,.16);border-color:rgba(255,96,96,.45);color:#ffb5b5}
 .aod-mode .aod-overlay{display:block}
 .aod-clock{font-family:'Orbitron',monospace;font-size:1.25rem;font-weight:700;letter-spacing:.18em;color:#fff;text-shadow:0 0 10px rgba(255,255,255,.14)}
 .aod-sub{margin-top:2px;font-family:'Share Tech Mono',monospace;font-size:.58rem;letter-spacing:.22em;color:rgba(255,255,255,.72)}
-.aod-mini{margin-top:10px;display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border:1px solid rgba(255,255,255,.18);border-radius:999px;background:rgba(255,255,255,.04);backdrop-filter:blur(1px);font-family:'Share Tech Mono',monospace;font-size:.56rem;letter-spacing:.08em;color:#fff}
+.aod-mini{margin-top:10px;display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border:1px solid rgba(255,255,255,.18);border-radius:999px;background:rgba(255,255,255,.04);backdrop-filter:blur(1px);font-family:'Share Tech Mono',monospace;font-size:.56rem;letter-spacing:.08em;color:#fff}.aod-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}.aod-metric{border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:7px 8px;background:rgba(255,255,255,.03);backdrop-filter:blur(1px)}.aod-metric span{display:block;font-family:'Share Tech Mono',monospace;font-size:.46rem;letter-spacing:.18em;color:rgba(255,255,255,.55);margin-bottom:4px}.aod-metric strong{font-family:'Orbitron',monospace;font-size:.76rem;letter-spacing:.08em;color:#fff}
 .aod-status{margin-top:12px;font-family:'Share Tech Mono',monospace;font-size:.56rem;letter-spacing:.16em;color:rgba(255,255,255,.55)}
 .aod-exit-btn{pointer-events:auto;position:absolute;right:0;bottom:0;font-family:'Orbitron',monospace;font-size:.58rem;letter-spacing:.12em;padding:10px 12px;border-radius:999px;border:1px solid rgba(0,255,136,.32);background:rgba(0,255,136,.08);color:var(--g);box-shadow:0 0 0 1px rgba(0,0,0,.25) inset}
 .aod-exit-btn.on{background:rgba(255,179,0,.14);border-color:rgba(255,179,0,.45);color:var(--amber)}
@@ -90,10 +90,10 @@ html.aod-mode, body.aod-mode{background:#000 !important}
 #sweepCanvas{position:absolute;top:0;left:0;border-radius:50%;pointer-events:none}
 
 /* ── STATS ROW ── */
-.stats-row{display:flex;justify-content:space-around;padding:6px 8px;background:var(--bg2);border-top:1px solid var(--bdr);flex-shrink:0}
-.stat{text-align:center}
-.stat-val{font-family:'Share Tech Mono',monospace;font-size:.85rem;color:var(--g)}
-.stat-lbl{font-size:.52rem;color:var(--muted);letter-spacing:.07em;text-transform:uppercase}
+.stats-row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;padding:6px 8px;background:var(--bg2);border-top:1px solid var(--bdr);flex-shrink:0}
+.stat{min-width:0;text-align:center}
+.stat-val{font-family:'Share Tech Mono',monospace;font-size:.78rem;color:var(--g)}
+.stat-lbl{font-size:.48rem;color:var(--muted);letter-spacing:.07em;text-transform:uppercase}
 
 /* ── BOTTOM PANEL ── */
 .bottom-panel{background:var(--bg2);border-top:1px solid var(--bdr);flex-shrink:0;overflow:hidden;transition:max-height .3s ease;max-height:34vh}
@@ -185,7 +185,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 .s-card.cyan .s-card-val{color:var(--g2)}
 .s-card.cyan::before{background:var(--g2)}
 .s-card.red .s-card-val{color:#ff6644}
-.s-card.red::before{background:#ff6644}
+.s-card.red::before{background:#ff6644}.s-card.green .s-card-val{color:#b9ffd8}.s-card.green::before{background:#b9ffd8}
 .s-card-icon{font-size:1.3rem;margin-bottom:6px}
 .s-card-val{font-family:'Orbitron',monospace;font-size:1.4rem;font-weight:700;color:var(--g);line-height:1}
 .s-card-sub{font-family:'Share Tech Mono',monospace;font-size:.6rem;color:var(--muted);margin-top:3px;letter-spacing:.05em}
@@ -251,8 +251,13 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 <div class="aod-overlay" id="aodOverlay">
   <div class="aod-clock" id="aodClock">--:--</div>
   <div class="aod-sub">OUR RADAR</div>
-  <div class="aod-mini" id="aodMini">AMOLED AOD</div>
-  <div class="aod-status" id="aodStatus">Ready for night mode</div>
+  <div class="aod-mini" id="aodMini">RED NIGHT MODE</div>
+  <div class="aod-metrics">
+    <div class="aod-metric"><span>LIVE COUNT</span><strong id="aodLiveCount">0</strong></div>
+    <div class="aod-metric"><span>FASTEST</span><strong id="aodFastest">—</strong></div>
+    <div class="aod-metric"><span>CLOSEST</span><strong id="aodClosest">—</strong></div>
+  </div>
+  <div class="aod-status" id="aodStatus">Ready for red night mode</div>
   <button class="aod-exit-btn" id="aodExitBtn" onclick="toggleAOD()">🕶 AOD OFF</button>
 </div>
 
@@ -276,6 +281,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
     <div class="stat"><div class="stat-val" id="statTotal">0</div><div class="stat-lbl">IN RANGE</div></div>
     <div class="stat"><div class="stat-val" id="statOverhead">0</div><div class="stat-lbl">OVERHEAD</div></div>
     <div class="stat"><div class="stat-val" id="statMax">—</div><div class="stat-lbl">MAX ALT</div></div>
+    <div class="stat"><div class="stat-val" id="statFastest">—</div><div class="stat-lbl">FASTEST</div></div>
     <div class="stat"><div class="stat-val" id="statClosest">—</div><div class="stat-lbl">CLOSEST</div></div>
   </div>
 
@@ -401,6 +407,12 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <div class="s-card-val cyan" id="sClosest">—</div>
         <div class="s-card-sub" id="sClosestFlight">—</div>
       </div>
+      <div class="s-card green">
+        <div class="s-card-icon">⚡</div>
+        <div class="s-card-lbl">Fastest Aircraft</div>
+        <div class="s-card-val" id="sFastest">—</div>
+        <div class="s-card-sub" id="sFastestFlight">—</div>
+      </div>
       <div class="s-card red">
         <div class="s-card-icon">🏆</div>
         <div class="s-card-lbl">Top Airline</div>
@@ -426,6 +438,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           <div class="sc-stat"><div class="sc-val" id="scTotal">0</div><div class="sc-lbl">AIRCRAFT SEEN</div></div>
           <div class="sc-stat"><div class="sc-val" id="scHighAlt">—</div><div class="sc-lbl">HIGHEST ALT</div></div>
           <div class="sc-stat"><div class="sc-val" id="scClosest">—</div><div class="sc-lbl">CLOSEST</div></div>
+          <div class="sc-stat"><div class="sc-val" id="scFastest">—</div><div class="sc-lbl">FASTEST</div></div>
           <div class="sc-stat"><div class="sc-val" id="scAirline" style="font-size:.9rem">—</div><div class="sc-lbl">TOP AIRLINE</div></div>
         </div>
         <div class="sc-footer" id="scDate">—</div>
@@ -474,6 +487,19 @@ let aodMode = false;
 let wakeLock = null;
 let burnInTimer = null;
 let aodClockTimer = null;
+let prevInRangeHexes = null;
+let audioCtx = null;
+let aodDriftX = 0;
+let aodDriftY = 0;
+
+const AIRPORTS = [
+  { name: 'Pune Airport', lat: 18.5793, lon: 73.9197, heading: 102, classLabel: 'C', rings: [8, 15, 22] },
+  { name: 'Mumbai Airport', lat: 19.0896, lon: 72.8656, heading: 91, classLabel: 'B', rings: [10, 18, 28] },
+  { name: 'Nashik Airport', lat: 19.9620, lon: 73.8070, heading: 90, classLabel: 'C', rings: [7, 13, 20] },
+  { name: 'Shirdi Airport', lat: 19.6880, lon: 74.3760, heading: 90, classLabel: 'C', rings: [7, 13, 20] },
+  { name: 'Kolhapur Airport', lat: 16.6646, lon: 74.2890, heading: 85, classLabel: 'C', rings: [7, 13, 20] },
+  { name: 'Aurangabad Airport', lat: 19.8634, lon: 75.3980, heading: 93, classLabel: 'C', rings: [7, 13, 20] }
+];
 
 const SETTINGS_KEY = 'skywatch_settings_v2';
 const AOD_KEY = 'skywatch_aod_v1';
@@ -656,11 +682,41 @@ function applyBurnInOffset() {
   const wrap = document.getElementById('radarWrap');
   const overlay = document.getElementById('aodOverlay');
   if (!wrap || !overlay) return;
-  const t = Date.now() / 60000;
-  const x = Math.round(Math.sin(t * 1.3) * 2);
-  const y = Math.round(Math.cos(t * 1.1) * 2);
+  const t = Date.now() / 45000;
+  const x = Math.max(-3, Math.min(3, Math.round(Math.sin(t * 1.35) * 3)));
+  const y = Math.max(-3, Math.min(3, Math.round(Math.cos(t * 1.12) * 3)));
+  aodDriftX = x; aodDriftY = y;
   wrap.style.transform = `translate(${x}px, ${y}px)`;
-  overlay.style.transform = `translate(${Math.round(-x/2)}px, ${Math.round(-y/2)}px)`;
+  overlay.style.transform = `translate(${Math.round(-x)}px, ${Math.round(-y)}px)`;
+}
+
+function ensureAudioContext() {
+  try {
+    const Ctor = window.AudioContext || window.webkitAudioContext;
+    if (!Ctor) return null;
+    if (!audioCtx || audioCtx.state === 'closed') audioCtx = new Ctor();
+    return audioCtx;
+  } catch (e) { return null; }
+}
+
+async function playNewPlanePing() {
+  const ctx = ensureAudioContext();
+  if (!ctx) return;
+  try {
+    if (ctx.state === 'suspended') await ctx.resume();
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, now);
+    osc.frequency.exponentialRampToValueAtTime(1320, now + 0.08);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.08, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.16);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.18);
+  } catch (e) {}
 }
 
 function startBurnInProtection() {
@@ -696,8 +752,8 @@ function syncAODButtons() {
     btn.classList.toggle('on', aodMode);
   });
 
-  if (mini) mini.textContent = aodMode ? 'AMOLED AOD • KEEP AWAKE' : 'AMOLED AOD';
-  if (status) status.textContent = aodMode ? 'Tap OFF to return' : 'Ready for night mode';
+  if (mini) mini.textContent = aodMode ? 'RED NIGHT MODE • BURN-IN SAFE' : 'AMOLED AOD';
+  if (status) status.textContent = aodMode ? 'Burn-in safe, slow sweep active' : 'Ready for red night mode';
 }
 
 async function setAODMode(on) {
@@ -841,6 +897,9 @@ function drawRadar() {
   // RANGE_NM covers the full radius. 1 nm = 1/60 degree lat.
   // pixels per nm = R / RANGE_NM
   const pxPerNm = R / RANGE_NM;
+
+  // Airport markers + airspace
+  drawAirportOverlays(rctx, cx, cy, pxPerNm);
   planes.forEach(p => {
     if (!p.lat || !p.lon) return;
     // Convert lat/lon delta to nautical miles, then to pixels
@@ -969,7 +1028,7 @@ function drawSweep(ts) {
   const cx = W / 2, cy = H / 2;
   const dt = ts ? (ts - (lastTs || ts)) / 1000 : 0;
   lastTs = ts;
-  sweepAng = (sweepAng + dt * 0.09) % (Math.PI * 2);
+  sweepAng = (sweepAng + dt * (aodMode ? 0.035 : 0.09)) % (Math.PI * 2);
 
   const spread = Math.PI * 0.3;
   const grad = sctx.createConicalGradient ? null : null; // fallback
@@ -984,7 +1043,7 @@ function drawSweep(ts) {
     sctx.moveTo(cx, cy);
     sctx.arc(cx, cy, R, a, a + (spread / 24));
     sctx.closePath();
-    sctx.fillStyle = `rgba(0,255,136,${alpha})`;
+    sctx.fillStyle = aodMode ? `rgba(255,90,90,${alpha * 0.95})` : `rgba(0,255,136,${alpha})`;
     sctx.fill();
   }
 
@@ -992,7 +1051,7 @@ function drawSweep(ts) {
   sctx.beginPath();
   sctx.moveTo(cx, cy);
   sctx.lineTo(cx + Math.cos(sweepAng) * R, cy + Math.sin(sweepAng) * R);
-  sctx.strokeStyle = 'rgba(0,255,136,.9)';
+  sctx.strokeStyle = aodMode ? 'rgba(255,90,90,.92)' : 'rgba(0,255,136,.9)';
   sctx.lineWidth = 1.5;
   sctx.stroke();
   sctx.restore();
@@ -1006,6 +1065,81 @@ let lastTs = 0;
 // ═══════════════════════════════════════════════════════
 function latDeg() { return 1 / 111.32; }
 function lonDeg() { return 1 / (111.32 * Math.cos(LAT * Math.PI / 180)); }
+
+function drawAirportOverlays(ctx, cx, cy, pxPerNm) {
+  const ringStyles = [
+    { cls: 'A', dash: [2, 6], col: 'rgba(255,90,90,.26)' },
+    { cls: 'B', dash: [3, 5], col: 'rgba(255,179,0,.22)' },
+    { cls: 'C', dash: [4, 4], col: 'rgba(0,255,136,.18)' }
+  ];
+  AIRPORTS.forEach(ap => {
+    const dLatNm = (ap.lat - LAT) * 60;
+    const dLonNm = (ap.lon - LON) * 60 * Math.cos(LAT * Math.PI / 180);
+    const dx = dLonNm * pxPerNm;
+    const dy = -dLatNm * pxPerNm;
+    const dist = Math.hypot(dx, dy);
+    if (dist > R) return;
+
+    const px = cx + dx;
+    const py = cy + dy;
+    const hdg = ((ap.heading || 90) - 90) * Math.PI / 180;
+    const runwayLen = Math.max(R * 0.16, 18);
+
+    ringStyles.forEach((ring, idx) => {
+      const nm = ap.rings?.[idx] ?? [22, 14, 8][idx];
+      const rr = nm * pxPerNm;
+      if (rr > R * 1.2) return;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(px, py, rr, 0, Math.PI * 2);
+      ctx.strokeStyle = ring.col;
+      ctx.lineWidth = idx === 0 ? 1.4 : 1;
+      ctx.setLineDash(ring.dash);
+      ctx.stroke();
+      ctx.fillStyle = ring.col;
+      ctx.font = `${Math.max(8, R * 0.025)}px 'Share Tech Mono'`;
+      ctx.fillText(ring.cls, px + rr + 4, py - 2);
+      ctx.restore();
+    });
+
+    ctx.save();
+    ctx.translate(px, py);
+    ctx.rotate(hdg);
+    ctx.strokeStyle = 'rgba(255,255,255,.35)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-runwayLen, 0);
+    ctx.lineTo(runwayLen, 0);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,90,90,.55)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(-runwayLen, 0);
+    ctx.lineTo(runwayLen, 0);
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(px, py, 8, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0,0,0,.35)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,255,136,.75)';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(0,255,136,.92)';
+    ctx.beginPath();
+    ctx.arc(px, py, 2.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    ctx.fillStyle = 'rgba(255,255,255,.78)';
+    ctx.font = `${Math.max(8, R * 0.03)}px 'Share Tech Mono'`;
+    ctx.fillText(ap.name, px + 10, py - 10);
+  });
+}
+
 function distKm(la1, lo1, la2, lo2) {
   const R = 6371, d2r = d => d * Math.PI / 180;
   const dla = d2r(la2 - la1), dlo = d2r(lo2 - lo1);
@@ -1050,6 +1184,18 @@ function updatePlanes(raw) {
     p._distKm = distKm(LAT, LON, p.lat, p.lon);
   });
 
+  const inRange = new Set();
+  const newlyEntered = [];
+  raw.forEach(p => {
+    const hex = p.hex || p.icao24 || '';
+    if (!hex || p._distKm == null) return;
+    if (p._distKm <= notifRadius) {
+      inRange.add(hex);
+      if (prevInRangeHexes && !prevInRangeHexes.has(hex)) newlyEntered.push(p);
+    }
+  });
+  prevInRangeHexes = inRange;
+
   // Record stats
   recordPlanes(raw);
 
@@ -1058,6 +1204,14 @@ function updatePlanes(raw) {
   renderList();
   updateStatsBar();
   drawRadar();
+
+  if (newlyEntered.length) {
+    newlyEntered.slice(0, 3).forEach(p => {
+      const call = (p.flight || p.hex || 'UNKNOWN').trim();
+      showToast(`New plane in range: ${call}`);
+      playNewPlanePing();
+    });
+  }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1084,7 +1238,8 @@ function renderList() {
     return `<div class="ac-card${isOver ? ' overhead' : ''}${isSel ? ' sel' : ''}" onclick="selectPlane('${p.hex}')">
       <div class="ac-icon ${isOver ? 'over' : 'normal'}" aria-hidden="true">
         <svg viewBox="0 0 24 24" role="img" focusable="false">
-          <path d="M21 16.5 13.2 12 21 7.5 20 5l-9 3.3L4.5 4 3 5.5 9.4 12 3 18.5 4.5 20l6.5-3.3L20 20z"/>
+          <path d="M21.5 12 3 4.5l4.8 7L3 19.5 21.5 12z"/>
+          <path d="M10.2 11.2 6.4 6.8 9.1 12l-2.7 5.2 3.8-4.4H14z" opacity=".42"/>
         </svg>
       </div>
       <div class="ac-main">
@@ -1097,12 +1252,21 @@ function renderList() {
 }
 
 function updateStatsBar() {
-  if (!planes.length) return;
+  const count = planes.length;
   const alts = planes.filter(p => (p.alt_baro ?? p.alt_geom) != null).map(p => p.alt_baro ?? p.alt_geom);
   const maxAlt = alts.length ? Math.max(...alts) : null;
+  const fastest = planes.filter(p => Number.isFinite(p.gs)).sort((a, b) => b.gs - a.gs)[0] || null;
+  const cl = planes[0] || null; // already sorted by distance
+
   document.getElementById('statMax').textContent = maxAlt ? `FL${Math.round(maxAlt/100).toString().padStart(3,'0')}` : '—';
-  const cl = planes[0]; // already sorted by distance
+  document.getElementById('statFastest').textContent = fastest ? `${Math.round(fastest.gs)}kt` : '—';
   document.getElementById('statClosest').textContent = cl ? `${cl._distKm.toFixed(1)}km` : '—';
+
+  const sFast = document.getElementById('sFastest'); if (sFast) sFast.textContent = fastest ? `${Math.round(fastest.gs)} kt` : '—';
+  const sFastF = document.getElementById('sFastestFlight'); if (sFastF) sFastF.textContent = fastest ? `${(fastest.flight || fastest.hex || '?').trim()} · ${fastest._distKm.toFixed(1)} km` : '—';
+  const aodLive = document.getElementById('aodLiveCount'); if (aodLive) aodLive.textContent = String(count);
+  const aodFastest = document.getElementById('aodFastest'); if (aodFastest) aodFastest.textContent = fastest ? `${Math.round(fastest.gs)} kt` : '—';
+  const aodClosest = document.getElementById('aodClosest'); if (aodClosest) aodClosest.textContent = cl ? `${cl._distKm.toFixed(1)} km` : '—';
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1327,6 +1491,18 @@ function refreshStatsUI() {
     document.getElementById('scClosest').textContent = '—';
   }
 
+  const fastest = planes.filter(p => Number.isFinite(p.gs)).sort((a, b) => b.gs - a.gs)[0];
+  if (fastest) {
+    const fastTxt = `${Math.round(fastest.gs)} kt`;
+    document.getElementById('sFastest').textContent = fastTxt;
+    document.getElementById('sFastestFlight').textContent = `${(fastest.flight || fastest.hex || '?').trim()} · ${fastest._distKm.toFixed(1)} km`;
+    document.getElementById('scFastest').textContent = fastTxt;
+  } else {
+    document.getElementById('sFastest').textContent = '—';
+    document.getElementById('sFastestFlight').textContent = 'no data yet';
+    document.getElementById('scFastest').textContent = '—';
+  }
+
   // Top airline
   const airlines = todayStats.airlines;
   const sorted = Object.entries(airlines).sort((a, b) => b[1] - a[1]);
@@ -1359,12 +1535,18 @@ function refreshStatsUI() {
 // ═══════════════════════════════════════════════════════
 // SHARE STATS
 // ═══════════════════════════════════════════════════════
+function currentFastestSeen() {
+  const fast = planes.filter(p => Number.isFinite(p.gs)).sort((a, b) => b.gs - a.gs)[0];
+  return fast ? `${(fast.flight || fast.hex || '?').trim()} (${Math.round(fast.gs)} kt)` : '—';
+}
+
 function buildStatsText() {
   const total = Object.keys(todayStats.seenHexes).length;
   const fl = todayStats.highestAlt ? `FL${Math.round(todayStats.highestAlt / 100).toString().padStart(3, '0')}` : '—';
   const cl = todayStats.closest != null ? `${todayStats.closest.toFixed(1)} km` : '—';
   const sorted = Object.entries(todayStats.airlines).sort((a, b) => b[1] - a[1]);
   const airline = sorted.length ? sorted[0][0] : '—';
+  const fastest = currentFastestSeen();
   const today = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 
   return `✈ My SkyWatch Stats — ${today}
@@ -1372,6 +1554,7 @@ function buildStatsText() {
 
 🛫 Aircraft seen today: ${total}
 ⬆ Highest altitude: ${fl}
+⚡ Fastest aircraft: ${fastest}
 📍 Closest aircraft: ${cl}
 🏆 Top airline: ${airline}
 
