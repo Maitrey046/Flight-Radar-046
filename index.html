@@ -52,11 +52,16 @@ button{font-family:inherit;cursor:pointer;border:none;outline:none}
 .weather-status{margin-top:6px;font-family:'Share Tech Mono',monospace;font-size:.58rem;color:var(--g2);letter-spacing:.08em}
 
 /* ── AOD MODE ── */
-.aod-overlay{display:none;position:fixed;top:10px;left:10px;right:10px;z-index:40;pointer-events:none}
+.aod-overlay{display:none;position:fixed;top:10px;left:10px;right:10px;z-index:40;pointer-events:none;min-height:calc(100% - 20px)}
 .aod-mode .aod-overlay{display:block}
 .aod-clock{font-family:'Orbitron',monospace;font-size:1.25rem;font-weight:700;letter-spacing:.18em;color:#fff;text-shadow:0 0 10px rgba(255,255,255,.14)}
 .aod-sub{margin-top:2px;font-family:'Share Tech Mono',monospace;font-size:.58rem;letter-spacing:.22em;color:rgba(255,255,255,.72)}
 .aod-mini{margin-top:10px;display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border:1px solid rgba(255,255,255,.18);border-radius:999px;background:rgba(255,255,255,.04);backdrop-filter:blur(1px);font-family:'Share Tech Mono',monospace;font-size:.56rem;letter-spacing:.08em;color:#fff}
+.aod-status{margin-top:12px;font-family:'Share Tech Mono',monospace;font-size:.56rem;letter-spacing:.16em;color:rgba(255,255,255,.55)}
+.aod-exit-btn{pointer-events:auto;position:absolute;right:0;bottom:0;font-family:'Orbitron',monospace;font-size:.58rem;letter-spacing:.12em;padding:10px 12px;border-radius:999px;border:1px solid rgba(0,255,136,.32);background:rgba(0,255,136,.08);color:var(--g);box-shadow:0 0 0 1px rgba(0,0,0,.25) inset}
+.aod-exit-btn.on{background:rgba(255,179,0,.14);border-color:rgba(255,179,0,.45);color:var(--amber)}
+.aod-quick-btn{font-size:.58rem;padding:6px 10px}
+.aod-quick-btn.on{background:rgba(255,179,0,.14);border-color:rgba(255,179,0,.45);color:var(--amber)}
 .aod-mode{background:#000 !important}
 html.aod-mode, body.aod-mode{background:#000 !important}
 .aod-mode .topbar,.aod-mode .stats-row,.aod-mode .bottom-panel,.aod-mode .notif-banner,.aod-mode .weather-card{display:none !important}
@@ -98,12 +103,17 @@ html.aod-mode, body.aod-mode{background:#000 !important}
 .panel-arrow{font-size:.6rem;color:var(--muted);transition:transform .3s}
 .bottom-panel.collapsed .panel-arrow{transform:rotate(180deg)}
 .bottom-panel.collapsed{max-height:34px}
-.ac-list{overflow-y:auto;max-height:calc(34vh - 34px);padding:0 8px 8px}
+.ac-list{overflow-y:auto;max-height:220px;padding:0 8px 8px;-webkit-overflow-scrolling:touch}
 .ac-card{display:flex;align-items:center;gap:10px;background:var(--bg3);border:1px solid var(--bdr);border-radius:8px;padding:7px 11px;cursor:pointer;transition:border-color .2s;animation:fadeIn .25s ease;margin-bottom:5px}
 .ac-card:last-child{margin-bottom:0}
 .ac-card.overhead{border-color:var(--amber);background:rgba(255,179,0,.07)}
 .ac-card.sel{background:rgba(0,255,136,.09);border-color:var(--g)}
 .ac-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.ac-icon{width:22px;height:22px;display:grid;place-items:center;flex-shrink:0;border-radius:50%;background:rgba(0,255,136,.07);border:1px solid rgba(0,255,136,.16);box-shadow:0 0 10px rgba(0,255,136,.08) inset}
+.ac-icon svg{width:14px;height:14px;display:block;fill:currentColor}
+.ac-icon.over{background:rgba(255,179,0,.08);border-color:rgba(255,179,0,.22)}
+.ac-icon.over svg{color:var(--amber)}
+.ac-icon.normal svg{color:var(--g)}
 .ac-main{flex:1;min-width:0}
 .ac-call{font-family:'Orbitron',monospace;font-size:.65rem;font-weight:600;letter-spacing:.1em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ac-sub{font-family:'Share Tech Mono',monospace;font-size:.55rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -194,7 +204,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 .share-card-preview{background:linear-gradient(135deg,#030c05 0%,#071409 50%,#030c05 100%);border:1px solid var(--bdr2);border-radius:16px;padding:20px;position:relative;overflow:hidden;margin-bottom:14px}
 .share-card-preview::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 20% 50%,rgba(0,255,136,.06) 0%,transparent 70%)}
 .sc-brand{font-family:'Orbitron',monospace;font-size:.55rem;letter-spacing:.25em;color:var(--gd);margin-bottom:12px;display:flex;align-items:center;gap:6px}
-.sc-brand::before{content:'✈';font-size:.8rem}
+.sc-brand::before{content:'🛩️';font-size:.8rem}
 .sc-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
 .sc-stat{text-align:center}
 .sc-val{font-family:'Orbitron',monospace;font-size:1.5rem;font-weight:700;color:var(--g);line-height:1}
@@ -242,6 +252,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
   <div class="aod-clock" id="aodClock">--:--</div>
   <div class="aod-sub">OUR RADAR</div>
   <div class="aod-mini" id="aodMini">AMOLED AOD</div>
+  <div class="aod-status" id="aodStatus">Ready for night mode</div>
+  <button class="aod-exit-btn" id="aodExitBtn" onclick="toggleAOD()">🕶 AOD OFF</button>
 </div>
 
 <!-- MAIN APP -->
@@ -249,6 +261,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
   <div class="topbar">
     <div class="brand">SKYWATCH</div>
     <div class="badge"><div class="live-dot" id="liveDot"></div><span id="liveLabel">LIVE</span></div>
+    <button class="icon-btn aod-quick-btn" id="aodQuickBtn" onclick="toggleAOD()">🕶 AOD ON</button>
     <button class="icon-btn" onclick="openSettings()">⚙ SETTINGS</button>
     <button class="icon-btn" onclick="openStats()">📊 STATS</button>
     <button class="icon-btn" id="alertBtn" onclick="toggleAlerts()">🔔 ALERTS</button>
@@ -319,15 +332,6 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <input type="range" id="radiusSlider" min="1" max="20" value="5" oninput="onRadiusChange(this.value)"/>
       <div class="slider-val" id="radiusVal">5 km</div>
     </div>
-
-    <div class="aod-toggle">
-      <div class="aod-copy">
-        <div class="aod-ttl">ALWAYS ON DISPLAY</div>
-        <div class="aod-subtxt">Black screen, clock, radar, wake lock, fullscreen, and burn-in protection.</div>
-      </div>
-      <button class="aod-btn" id="aodBtn" onclick="toggleAOD()">OFF</button>
-    </div>
-
     <div style="font-family:'Orbitron',monospace;font-size:.58rem;letter-spacing:.15em;color:var(--gd);margin-bottom:10px">LOCATION</div>
     <button class="loc-gps-btn" onclick="useGPS()">📍 USE MY GPS LOCATION</button>
     <div class="loc-wrap">
@@ -380,7 +384,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
     <!-- Key metrics -->
     <div class="stats-grid">
       <div class="s-card">
-        <div class="s-card-icon">✈</div>
+        <div class="s-card-icon">🛩️</div>
         <div class="s-card-lbl">Total Aircraft Seen</div>
         <div class="s-card-val" id="sTotalSeen">0</div>
         <div class="s-card-sub">today</div>
@@ -679,16 +683,27 @@ function stopBurnInProtection() {
   if (overlay) overlay.style.transform = '';
 }
 
+function syncAODButtons() {
+  const quick = document.getElementById('aodQuickBtn');
+  const exit = document.getElementById('aodExitBtn');
+  const mini = document.getElementById('aodMini');
+  const status = document.getElementById('aodStatus');
+  const label = aodMode ? '🕶 AOD OFF' : '🕶 AOD ON';
+
+  [quick, exit].forEach(btn => {
+    if (!btn) return;
+    btn.textContent = label;
+    btn.classList.toggle('on', aodMode);
+  });
+
+  if (mini) mini.textContent = aodMode ? 'AMOLED AOD • KEEP AWAKE' : 'AMOLED AOD';
+  if (status) status.textContent = aodMode ? 'Tap OFF to return' : 'Ready for night mode';
+}
+
 async function setAODMode(on) {
   aodMode = !!on;
   document.body.classList.toggle('aod-mode', aodMode);
-  const btn = document.getElementById('aodBtn');
-  if (btn) {
-    btn.textContent = aodMode ? 'ON' : 'OFF';
-    btn.classList.toggle('on', aodMode);
-  }
-  const mini = document.getElementById('aodMini');
-  if (mini) mini.textContent = aodMode ? 'AMOLED AOD • KEEP AWAKE' : 'AMOLED AOD';
+  syncAODButtons();
   saveAppSettings();
 
   if (aodMode) {
@@ -858,6 +873,16 @@ function drawRadar() {
     rctx.fillStyle = planeCol;
     rctx.shadowColor = planeCol;
     rctx.shadowBlur = isSel ? 10 : 5;
+
+    // Subtle contrail / glow trail for a cooler look
+    rctx.strokeStyle = planeCol;
+    rctx.globalAlpha = 0.28;
+    rctx.lineWidth = isSel ? 1.6 : 1.1;
+    rctx.beginPath();
+    rctx.moveTo(-sz * 2.2, 0);
+    rctx.lineTo(-sz * 3.8, 0);
+    rctx.stroke();
+    rctx.globalAlpha = 1;
 
     // Main fuselage
     rctx.beginPath();
@@ -1057,7 +1082,11 @@ function renderList() {
     const isOver = p._distKm * 1000 < notifRadius * 1000;
     const isSel  = p.hex === selHex;
     return `<div class="ac-card${isOver ? ' overhead' : ''}${isSel ? ' sel' : ''}" onclick="selectPlane('${p.hex}')">
-      <div class="ac-dot" style="background:${isOver ? 'var(--amber)' : 'var(--g)'}"></div>
+      <div class="ac-icon ${isOver ? 'over' : 'normal'}" aria-hidden="true">
+        <svg viewBox="0 0 24 24" role="img" focusable="false">
+          <path d="M21 16.5 13.2 12 21 7.5 20 5l-9 3.3L4.5 4 3 5.5 9.4 12 3 18.5 4.5 20l6.5-3.3L20 20z"/>
+        </svg>
+      </div>
       <div class="ac-main">
         <div class="ac-call">${call}${isOver ? '<span class="overhead-tag">OVERHEAD</span>' : ''}</div>
         <div class="ac-sub">${fl} · ${spd} · ${p.t || '?'}</div>
@@ -1435,12 +1464,8 @@ async function init() {
   document.getElementById('alertBtn').classList.toggle('active', alertsActive);
   document.getElementById('alertBtn').textContent = alertsActive ? '🔔 ALERTS ON' : '🔔 ALERTS';
   setConnectionStatus(true);
-  const aodBtn = document.getElementById('aodBtn');
-  if (aodBtn) {
-    aodBtn.textContent = aodMode ? 'ON' : 'OFF';
-    aodBtn.classList.toggle('on', aodMode);
-  }
   document.body.classList.toggle('aod-mode', aodMode);
+  syncAODButtons();
 
   resizeCanvases();
   drawRadar();
