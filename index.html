@@ -229,6 +229,20 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 @keyframes pulse{0%,100%{box-shadow:0 0 6px var(--g)}50%{box-shadow:0 0 18px var(--g)}}
+
+/* ── DIAGNOSTICS ── */
+.dg-sum{font-family:'Share Tech Mono',monospace;font-size:.72rem;margin-bottom:6px}
+.dg-sum.ok,.dg-log .ok,.dg-tbl .ok{color:var(--g)}
+.dg-sum.bad,.dg-log .bad,.dg-tbl .bad{color:var(--red)}
+.dg-why{font-size:.78rem;color:var(--amber);margin-bottom:6px;line-height:1.35}
+.dg-env{font-family:'Share Tech Mono',monospace;font-size:.6rem;color:var(--muted);margin-bottom:8px}
+.dg-btns{display:flex;gap:6px;margin-bottom:8px}
+.dg-btns button{flex:1;background:rgba(0,255,136,.07);border:1px solid var(--bdr);color:var(--gd);border-radius:7px;padding:8px 4px;font-family:'Orbitron',monospace;font-size:.5rem;letter-spacing:.08em}
+.dg-btns button:disabled{opacity:.5}
+.dg-tbl{width:100%;border-collapse:collapse;font-family:'Share Tech Mono',monospace;font-size:.58rem;margin-bottom:8px}
+.dg-tbl th,.dg-tbl td{border:1px solid var(--bdr);padding:4px;text-align:center}
+.dg-tbl th{color:var(--muted);font-weight:normal}
+.dg-log{font-family:'Share Tech Mono',monospace;font-size:.56rem;line-height:1.5;max-height:150px;overflow-y:auto;margin-bottom:14px;word-break:break-word}
 </style>
 </head>
 <body>
@@ -348,6 +362,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <div class="di-label">CURRENT WATCH POINT</div>
       <div class="di-val" id="currentLocLabel">—</div>
     </div>
+
+    <div style="font-family:'Orbitron',monospace;font-size:.58rem;letter-spacing:.15em;color:var(--gd);margin:6px 0 10px">CONNECTION DIAGNOSTICS</div>
+    <div id="diagBox"></div>
   </div>
 </div>
 
@@ -604,7 +621,7 @@ function weatherFromCode(code) {
 
 async function fetchWeather() {
   try {
-    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,weather_code,wind_speed_10m&timezone=auto`);
+    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,weather_code,wind_speed_10m&timezone=auto`, { signal: timeoutSignal(6000) });
     if (!r.ok) throw new Error(r.status);
     const d = await r.json();
     weatherData = d.current || null;
@@ -1155,8 +1172,9 @@ const APIS = [
   (la, lo, nm) => `https://api.airplanes.live/v2/point/${la}/${lo}/${nm}`,
   (la, lo, nm) => `https://opendata.adsb.fi/api/v2/lat/${la}/lon/${lo}/dist/${nm}`,
 ];
-// Same fallback chain that worked in Squawk: direct -> your own Cloudflare Worker -> public CORS proxies.
-// The last method that worked is remembered so failed methods aren't retried on every poll.
+const API_NAMES = ['adsb.lol', 'airplanes.live', 'adsb.fi'];
+
+// Connection methods, tried in order: direct -> your Cloudflare Worker -> public CORS proxies.
 const WORKER_PROXY_URL = 'https://squawk.maitreyd046.workers.dev';
 const FETCH_METHODS = [
   url => url,
@@ -1164,41 +1182,166 @@ const FETCH_METHODS = [
   url => 'https://corsproxy.io/?url=' + encodeURIComponent(url),
   url => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
 ];
-let fetchMethodIdx = 0;
+const METHOD_NAMES = ['direct', 'own worker', 'corsproxy.io', 'allorigins'];
+
+let apiIdx = 0, methodIdx = 0, fetchFail = 0, retryTimer = null;
+const diag = { log: [], lastOkAt: null, lastOkVia: '', running: false, passes: 0, test: null, testing: false };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
 function timeoutSignal(ms) {
   if (AbortSignal.timeout) return AbortSignal.timeout(ms);
   const c = new AbortController(); setTimeout(() => c.abort(), ms); return c.signal;
 }
-async function fetchJson(url) {
-  let lastErr;
-  for (let i = 0; i < FETCH_METHODS.length; i++) {
-    const m = (fetchMethodIdx + i) % FETCH_METHODS.length;
-    try {
-      const r = await fetch(FETCH_METHODS[m](url), { signal: timeoutSignal(7000) });
-      if (r.status === 429) throw new Error('HTTP 429');
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      const data = await r.json();
-      fetchMethodIdx = m;
-      return data;
-    } catch (e) { lastErr = e; }
-  }
-  throw lastErr;
-}
-let apiIdx = 0, fetchFail = 0;
 
-async function fetchPlanes() {
-  for (let i = 0; i < APIS.length; i++) {
-    const idx = (apiIdx + i) % APIS.length;
-    try {
-      const data = await fetchJson(APIS[idx](LAT, LON, RANGE_NM));
-      apiIdx = idx; fetchFail = 0; demoMode = false;
-      setConnectionStatus(true);
-      updatePlanes((data.ac || []).filter(p => p.lat != null && p.lon != null));
-      return;
-    } catch(e) { console.warn('[SkyWatch] API', idx, 'failed:', e.name, e.message); }
+function classifyError(e) {
+  const msg = String((e && e.message) || e);
+  if (e && (e.name === 'TimeoutError' || e.name === 'AbortError'))
+    return { short: 'timeout', why: 'Timed out after 5s (host slow or not responding)' };
+  if (msg === 'NOT_JSON') return { short: 'not JSON', why: 'Reply was not JSON (proxy or error page)' };
+  if (msg === 'BAD_SHAPE') return { short: 'bad data', why: 'Reply was JSON but not ADS-B aircraft data' };
+  const m = msg.match(/^HTTP (\d+)/);
+  if (m) {
+    const c = +m[1];
+    if (c === 429) return { short: '429', why: 'Rate limited (429) - too many requests' };
+    if (c === 403) return { short: '403', why: 'Forbidden (403) - host refused the request' };
+    if (c >= 500) return { short: String(c), why: 'Server error (' + c + ')' };
+    return { short: String(c), why: 'HTTP error ' + c };
   }
-  fetchFail++;
-  if (fetchFail >= 3) { demoMode = true; updateDisconnectedMode(); }
+  if (e instanceof TypeError)
+    return { short: 'blocked', why: 'Blocked before any reply (CORS, offline, DNS, ad-blocker or VPN)' };
+  return { short: 'error', why: msg };
+}
+
+function diagPush(entry) {
+  diag.log.unshift(entry);
+  if (diag.log.length > 60) diag.log.length = 60;
+  renderDiag();
+}
+
+// One attempt: one API through one connection method. Throws on any failure.
+async function tryCombo(a, m) {
+  const t0 = performance.now();
+  const url = APIS[a](LAT, LON, RANGE_NM);
+  try {
+    const r = await fetch(FETCH_METHODS[m](url), { signal: timeoutSignal(5000) });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    let data;
+    try { data = await r.json(); } catch (_) { throw new Error('NOT_JSON'); }
+    if (!data || !Array.isArray(data.ac)) throw new Error('BAD_SHAPE');
+    diagPush({ t: Date.now(), a, m, ok: true, ms: Math.round(performance.now() - t0), n: data.ac.length });
+    return data;
+  } catch (e) {
+    const c = classifyError(e);
+    diagPush({ t: Date.now(), a, m, ok: false, ms: Math.round(performance.now() - t0), short: c.short, why: c.why });
+    throw e;
+  }
+}
+
+// Brute force: every API x every method, last-working combo first, 3 passes per call,
+// and if everything still fails a new attempt is scheduled every 3 seconds until it connects.
+async function fetchPlanes() {
+  if (diag.running) return;
+  diag.running = true; renderDiag();
+  try {
+    for (let round = 0; round < 3; round++) {
+      for (let i = 0; i < APIS.length; i++) {
+        const a = (apiIdx + i) % APIS.length;
+        for (let j = 0; j < FETCH_METHODS.length; j++) {
+          const m = (methodIdx + j) % FETCH_METHODS.length;
+          try {
+            const data = await tryCombo(a, m);
+            apiIdx = a; methodIdx = m; fetchFail = 0; demoMode = false;
+            diag.lastOkAt = Date.now(); diag.lastOkVia = API_NAMES[a] + ' / ' + METHOD_NAMES[m];
+            clearTimeout(retryTimer); retryTimer = null;
+            setConnectionStatus(true);
+            updatePlanes(data.ac.filter(p => p.lat != null && p.lon != null));
+            return;
+          } catch (_) { /* keep trying */ }
+        }
+      }
+      await sleep(800 * (round + 1));
+    }
+    fetchFail++; diag.passes++;
+    demoMode = true; updateDisconnectedMode();
+    clearTimeout(retryTimer);
+    retryTimer = setTimeout(fetchPlanes, 3000);
+  } finally {
+    diag.running = false; renderDiag();
+  }
+}
+
+function diagnose() {
+  if (!navigator.onLine) return "Your browser reports you're offline.";
+  if (location.protocol === 'file:') return 'Page was opened from file:// - host it (GitHub Pages) or use localhost.';
+  const recent = diag.log.slice(0, 12);
+  if (!recent.length) return 'No attempts yet.';
+  if (recent.some(e => e.ok)) return 'Connected.';
+  const counts = {};
+  recent.forEach(e => { counts[e.short] = (counts[e.short] || 0) + 1; });
+  const top = Object.keys(counts).sort((x, y) => counts[y] - counts[x])[0];
+  const tips = {
+    blocked: 'Every request was blocked before a reply. Check: internet connection, ad-blocker / DNS filter (Pi-hole, AdGuard, NextDNS), VPN, or a school/office network blocking these hosts. Try mobile data.',
+    timeout: 'Requests are timing out. Slow or filtered network, or the hosts are down.',
+    '429': 'All sources are rate-limiting you. Wait a minute; keep only one tab/device polling.',
+    '403': 'Hosts are refusing requests from your network or the proxy. Try another network.',
+    'not JSON': 'Proxies are returning error pages instead of data.',
+    'bad data': 'Sources replied, but not with aircraft data.',
+  };
+  return (tips[top] || 'Failures are mixed - see the log below.') + ' (' + top + ' x' + counts[top] + ')';
+}
+
+const fmtT = t => new Date(t).toLocaleTimeString([], { hour12: false });
+
+function renderDiag() {
+  const box = document.getElementById('diagBox');
+  if (!box || !document.getElementById('settingsOverlay').classList.contains('open')) return;
+  const live = diag.lastOkAt && !fetchFail;
+  let h = `<div class="dg-sum ${live ? 'ok' : 'bad'}">${live ? '● LIVE via ' + diag.lastOkVia + ' · ' + fmtT(diag.lastOkAt) : '● DISCONNECTED'}${diag.running ? ' · trying…' : ''}</div>`;
+  if (!live) h += `<div class="dg-why">${diagnose()}</div>`;
+  h += `<div class="dg-env">online: ${navigator.onLine ? 'yes' : 'NO'} · page: ${location.protocol} · failed passes: ${diag.passes}</div>`;
+  h += `<div class="dg-btns"><button onclick="runDiagTest()" ${diag.testing ? 'disabled' : ''}>${diag.testing ? 'TESTING…' : 'RUN FULL TEST'}</button><button onclick="fetchPlanes()">RETRY NOW</button><button onclick="copyDiag()">COPY REPORT</button></div>`;
+  if (diag.test) {
+    h += '<table class="dg-tbl"><tr><th></th>' + METHOD_NAMES.map(n => `<th>${n}</th>`).join('') + '</tr>';
+    API_NAMES.forEach((an, a) => {
+      h += `<tr><td>${an}</td>` + METHOD_NAMES.map((_, m) => {
+        const r = diag.test[a + '-' + m];
+        return !r ? '<td>·</td>' : r.ok ? `<td class="ok">✓ ${r.ms}ms</td>` : `<td class="bad">✗ ${r.short}</td>`;
+      }).join('') + '</tr>';
+    });
+    h += '</table>';
+  }
+  h += '<div class="dg-log">' + diag.log.slice(0, 14).map(e =>
+    `<div class="${e.ok ? 'ok' : 'bad'}">${fmtT(e.t)} ${API_NAMES[e.a]} › ${METHOD_NAMES[e.m]}: ${e.ok ? 'OK (' + e.n + ' aircraft, ' + e.ms + 'ms)' : e.why}</div>`
+  ).join('') + '</div>';
+  box.innerHTML = h;
+}
+
+async function runDiagTest() {
+  if (diag.testing) return;
+  diag.testing = true; diag.test = {}; renderDiag();
+  for (let a = 0; a < APIS.length; a++) {
+    for (let m = 0; m < FETCH_METHODS.length; m++) {
+      try {
+        const t0 = performance.now();
+        await tryCombo(a, m);
+        diag.test[a + '-' + m] = { ok: true, ms: Math.round(performance.now() - t0) };
+      } catch (e) {
+        diag.test[a + '-' + m] = { ok: false, short: classifyError(e).short };
+      }
+      renderDiag();
+      await sleep(400);
+    }
+  }
+  diag.testing = false; renderDiag();
+}
+
+function copyDiag() {
+  const txt = ['SkyWatch diagnostics', location.href, navigator.userAgent, 'online=' + navigator.onLine,
+    'loc=' + LAT + ',' + LON + ' range=' + RANGE_NM + 'nm', diagnose(), '']
+    .concat(diag.log.map(e => `${fmtT(e.t)} ${API_NAMES[e.a]} > ${METHOD_NAMES[e.m]}: ${e.ok ? 'OK ' + e.n + ' ac ' + e.ms + 'ms' : e.why}`)).join('\n');
+  const done = ok => showToast(ok ? 'Report copied' : 'Copy failed');
+  if (navigator.clipboard) navigator.clipboard.writeText(txt).then(() => done(true), () => done(false));
+  else done(false);
 }
 
 function updateDisconnectedMode() {
@@ -1343,7 +1486,7 @@ function togglePanel() {
 // ═══════════════════════════════════════════════════════
 // SETTINGS
 // ═══════════════════════════════════════════════════════
-function openSettings() { document.getElementById('settingsOverlay').classList.add('open'); }
+function openSettings() { document.getElementById('settingsOverlay').classList.add('open'); renderDiag(); }
 function closeSettings(e) {
   if (e && e.target !== document.getElementById('settingsOverlay')) return;
   document.getElementById('settingsOverlay').classList.remove('open');
@@ -1674,6 +1817,8 @@ async function init() {
   document.getElementById('alertBtn').classList.toggle('active', alertsActive);
   document.getElementById('alertBtn').textContent = alertsActive ? '🔔 ALERTS ON' : '🔔 ALERTS';
   setConnectionStatus(true);
+  const liveBadge = document.getElementById('liveLabel').parentElement;
+  liveBadge.style.cursor = 'pointer'; liveBadge.onclick = openSettings;
   document.body.classList.toggle('aod-mode', aodMode);
   syncAODButtons();
 
@@ -1688,10 +1833,10 @@ async function init() {
   }
 
   // Register SW
-  if ('serviceWorker' in navigator) {
+  if ('serviceWorker' in navigator) (async () => {
     try {
       swReg = await navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' });
-      await navigator.serviceWorker.ready;
+      await Promise.race([navigator.serviceWorker.ready, sleep(4000)]);
 
       // BUG FIX 1: reliable controller reference
       sw = navigator.serviceWorker.controller || swReg.active;
@@ -1719,7 +1864,7 @@ async function init() {
       }
 
     } catch(e) { console.warn('[App] SW registration failed:', e); }
-  }
+  })();
 
   // Show notification banner if not decided yet
   if (!('Notification' in window) || Notification.permission === 'default') {
@@ -1727,8 +1872,7 @@ async function init() {
   }
 
   // Fetch weather + planes
-  await fetchWeather();
-  await fetchPlanes();
+  await Promise.race([Promise.all([fetchWeather(), fetchPlanes()]), sleep(10000)]);
 
   // Hide loader, show app
   document.getElementById('loader').classList.add('gone');
