@@ -1,6 +1,6 @@
 // ─── SKYWATCH SERVICE WORKER v4 ─────────────────────────────
 // Persisted watch config so alerts can continue even after the tab closes.
-const CACHE = 'skywatch-v4';
+const CACHE = 'skywatch-v5';
 const STATE_REQ = new Request('./__skywatch_state__.json');
 
 let config = {
@@ -67,6 +67,8 @@ self.addEventListener('install', e => {
 
 self.addEventListener('activate', e => {
   e.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)));
     await loadState();
     if (config.watching) startFetchLoop();
     await clients.claim();
@@ -76,7 +78,7 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   if (new URL(e.request.url).origin === self.location.origin) {
     e.respondWith(
-      caches.match(e.request).then(r => r || fetch(e.request))
+      fetch(e.request).catch(() => caches.match(e.request))
     );
   }
 });
@@ -137,10 +139,39 @@ self.addEventListener('message', e => {
 });
 
 const APIS = [
-  (lat, lon, nm) => `https://api.adsb.lol/v2/lat/${lat}/lon/${lon}/dist/${nm}`,
-  (lat, lon, nm) => `https://api.airplanes.live/v2/point/${lat}/${lon}/${nm}`,
-  (lat, lon, nm) => `https://opendata.adsb.fi/api/v2/lat/${lat}/lon/${lon}/dist/${nm}`,
+  (la, lo, nm) => `https://api.adsb.lol/v2/lat/${la}/lon/${lo}/dist/${nm}`,
+  (la, lo, nm) => `https://api.airplanes.live/v2/point/${la}/${lo}/${nm}`,
+  (la, lo, nm) => `https://opendata.adsb.fi/api/v2/lat/${la}/lon/${lo}/dist/${nm}`,
 ];
+// Same fallback chain that worked in Squawk: direct -> your own Cloudflare Worker -> public CORS proxies.
+// The last method that worked is remembered so failed methods aren't retried on every poll.
+const WORKER_PROXY_URL = 'https://squawk.maitreyd046.workers.dev';
+const FETCH_METHODS = [
+  url => url,
+  url => WORKER_PROXY_URL + '/?url=' + encodeURIComponent(url),
+  url => 'https://corsproxy.io/?url=' + encodeURIComponent(url),
+  url => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
+];
+let fetchMethodIdx = 0;
+function timeoutSignal(ms) {
+  if (AbortSignal.timeout) return AbortSignal.timeout(ms);
+  const c = new AbortController(); setTimeout(() => c.abort(), ms); return c.signal;
+}
+async function fetchJson(url) {
+  let lastErr;
+  for (let i = 0; i < FETCH_METHODS.length; i++) {
+    const m = (fetchMethodIdx + i) % FETCH_METHODS.length;
+    try {
+      const r = await fetch(FETCH_METHODS[m](url), { signal: timeoutSignal(7000) });
+      if (r.status === 429) throw new Error('HTTP 429');
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const data = await r.json();
+      fetchMethodIdx = m;
+      return data;
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr;
+}
 let apiIdx = 0;
 
 function startFetchLoop() {
@@ -175,11 +206,7 @@ async function doFetch() {
   for (let i = 0; i < APIS.length; i++) {
     const idx = (apiIdx + i) % APIS.length;
     try {
-      const res = await fetch(APIS[idx](lat, lon, rangeNm), {
-        signal: AbortSignal.timeout(9000)
-      });
-      if (!res.ok) throw new Error(res.status);
-      const data = await res.json();
+      const data = await fetchJson(APIS[idx](lat, lon, rangeNm));
       const planes = (data.ac || []).filter(p => p.lat != null && p.lon != null);
       apiIdx = idx;
       checkOverhead(planes);

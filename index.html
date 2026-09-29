@@ -1155,20 +1155,47 @@ const APIS = [
   (la, lo, nm) => `https://api.airplanes.live/v2/point/${la}/${lo}/${nm}`,
   (la, lo, nm) => `https://opendata.adsb.fi/api/v2/lat/${la}/lon/${lo}/dist/${nm}`,
 ];
+// Same fallback chain that worked in Squawk: direct -> your own Cloudflare Worker -> public CORS proxies.
+// The last method that worked is remembered so failed methods aren't retried on every poll.
+const WORKER_PROXY_URL = 'https://squawk.maitreyd046.workers.dev';
+const FETCH_METHODS = [
+  url => url,
+  url => WORKER_PROXY_URL + '/?url=' + encodeURIComponent(url),
+  url => 'https://corsproxy.io/?url=' + encodeURIComponent(url),
+  url => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
+];
+let fetchMethodIdx = 0;
+function timeoutSignal(ms) {
+  if (AbortSignal.timeout) return AbortSignal.timeout(ms);
+  const c = new AbortController(); setTimeout(() => c.abort(), ms); return c.signal;
+}
+async function fetchJson(url) {
+  let lastErr;
+  for (let i = 0; i < FETCH_METHODS.length; i++) {
+    const m = (fetchMethodIdx + i) % FETCH_METHODS.length;
+    try {
+      const r = await fetch(FETCH_METHODS[m](url), { signal: timeoutSignal(7000) });
+      if (r.status === 429) throw new Error('HTTP 429');
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const data = await r.json();
+      fetchMethodIdx = m;
+      return data;
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr;
+}
 let apiIdx = 0, fetchFail = 0;
 
 async function fetchPlanes() {
   for (let i = 0; i < APIS.length; i++) {
     const idx = (apiIdx + i) % APIS.length;
     try {
-      const r = await fetch(APIS[idx](LAT, LON, RANGE_NM), { signal: AbortSignal.timeout(9000) });
-      if (!r.ok) throw new Error(r.status);
-      const data = await r.json();
+      const data = await fetchJson(APIS[idx](LAT, LON, RANGE_NM));
       apiIdx = idx; fetchFail = 0; demoMode = false;
       setConnectionStatus(true);
       updatePlanes((data.ac || []).filter(p => p.lat != null && p.lon != null));
       return;
-    } catch(e) { /* try next */ }
+    } catch(e) { console.warn('[SkyWatch] API', idx, 'failed:', e.name, e.message); }
   }
   fetchFail++;
   if (fetchFail >= 3) { demoMode = true; updateDisconnectedMode(); }
