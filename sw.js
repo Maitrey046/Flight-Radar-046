@@ -1,6 +1,6 @@
 // ─── SKYWATCH SERVICE WORKER v4 ─────────────────────────────
 // Persisted watch config so alerts can continue even after the tab closes.
-const CACHE = 'skywatch-v5';
+const CACHE = 'skywatch-v6';
 const STATE_REQ = new Request('./__skywatch_state__.json');
 
 let config = {
@@ -145,14 +145,13 @@ const APIS = [
 ];
 // Same fallback chain that worked in Squawk: direct -> your own Cloudflare Worker -> public CORS proxies.
 // The last method that worked is remembered so failed methods aren't retried on every poll.
-const WORKER_PROXY_URL = 'https://squawk.maitreyd046.workers.dev';
+const WORKER_PROXY_URL = 'https://radar-046-proxy.vercel.app';
 const FETCH_METHODS = [
   url => url,
   url => WORKER_PROXY_URL + '/?url=' + encodeURIComponent(url),
-  url => 'https://corsproxy.io/?url=' + encodeURIComponent(url),
   url => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
 ];
-let fetchMethodIdx = 0;
+let fetchMethodIdx = 1; // start with the Worker; direct is CORS-blocked
 function timeoutSignal(ms) {
   if (AbortSignal.timeout) return AbortSignal.timeout(ms);
   const c = new AbortController(); setTimeout(() => c.abort(), ms); return c.signal;
@@ -238,7 +237,9 @@ function checkOverhead(planes) {
     const d = distM(lat, lon, p.lat, p.lon);
     if (d > radiusM) return;
 
-    const alt = p.alt_baro ?? p.alt_geom;
+    const rawAlt = p.alt_baro ?? p.alt_geom;
+    if (rawAlt === 'ground') return;               // parked/taxiing aircraft report "ground"
+    const alt = typeof rawAlt === 'number' ? rawAlt : null;
     if (alt != null && alt > maxAltFt) return;
 
     const hex = p.hex || p.icao24 || '';
@@ -249,7 +250,7 @@ function checkOverhead(planes) {
     saveState();
 
     const call = (p.flight || p.hex || 'Unknown').trim();
-    const fl   = alt ? `FL${Math.round(alt / 30.48).toString().padStart(3, '0')}` : '?';
+    const fl   = alt ? `FL${Math.round(alt / 100).toString().padStart(3, '0')}` : '?';
     const spd  = p.gs ? `${Math.round(p.gs)} kt` : '?';
     const dm   = (d / 1000).toFixed(1);
 
